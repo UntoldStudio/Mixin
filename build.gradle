@@ -161,7 +161,7 @@ if (JavaVersion.current().isJava8Compatible()) {
 }
 
 tasks.register('stagingJar', ShadowJar) {
-    archiveClassifier = "staging"
+    archiveClassifier = ""
 
     from sourceSets.main.output
     from sourceSets.ap.output
