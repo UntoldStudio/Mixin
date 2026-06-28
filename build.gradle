@@ -1,4 +1,3 @@
-import org.spongepowered.asm.mixin.build.ValidateLicenseHeadersTasks
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 
 buildscript {
