@@ -22,7 +22,7 @@ apply plugin: 'idea'
 defaultTasks 'check', 'build'
 
 group = 'com.github.UntoldStudio'
-version = buildVersion
+version = project.findProperty('version') ?: '0.1.0.1'
 
 base {
     archivesName = 'mixin'
@@ -158,6 +158,10 @@ if (JavaVersion.current().isJava8Compatible()) {
     tasks.withType(Javadoc).configureEach {
         options.addStringOption('Xdoclint:syntax', '-quiet')
     }
+}
+
+tasks.named('jar') {
+    enabled = false
 }
 
 tasks.register('stagingJar', ShadowJar) {
