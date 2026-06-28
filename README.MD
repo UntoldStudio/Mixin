@@ -11,12 +11,12 @@ repositories {
     maven { url 'https://jitpack.io' }
 }
 dependencies {
-    implementation 'com.github.UntoldStudio:Mixin:0.1.0'
-    annotationProcessor 'com.github.UntoldStudio:Mixin:0.1.0:processor'
+    implementation 'com.github.UntoldStudio:Mixin:0.1.0.0'
+    annotationProcessor 'com.github.UntoldStudio:Mixin:0.1.0.0'
 }
 ```
 
-(Replace `0.1.0` with the latest release tag or `main-SNAPSHOT`.)
+(Replace `0.1.0.0` with the latest release tag or `main-SNAPSHOT`.)
 
 ## Core Concepts
 
@@ -91,7 +91,6 @@ public class Main {
     public static void main(String[] args) throws Exception {
         // Step 1: Initialize the Mixin subsystem
         MixinBootstrap.init();
-        MixinEnvironment.init(MixinEnvironment.Phase.DEFAULT);
         MixinEnvironment.gotoPhase(MixinEnvironment.Phase.DEFAULT);
         Mixins.addConfiguration("mixins.example.json");
 
@@ -137,16 +136,13 @@ This framework supports a wide range of injection types:
 
 | Annotation | Description |
 |------------|-------------|
-| `@Inject` | Insert code at a specific point (`HEAD`, `RETURN`, `INVOKE`, etc.) |
+| `@Inject` | Insert code at a specific point (`HEAD`, `RETURN`, `INVOKE`, `TAIL`, etc.) |
+| `@Overwrite` | Completely replace a method implementation |
 | `@Redirect` | Redirect a method call to your own handler |
 | `@ModifyArg` | Modify arguments passed to a method call |
 | `@ModifyConstant` | Change a constant value used in the target method |
-| `@ModifyVariable` | Alter local variables at a specific location |
-| `@Overwrite` | Completely replace a method implementation |
-| `@Shadow` | Access a private field or method from the target class |
+| `@Shadow` | Access a private field from the target class |
 | `@Unique` | Add a brand new method to the target class |
-| `@Accessor` | Expose private fields or methods |
-| `@Invoker` | Create a public invoker for a private method |
 
 See the [test examples](src/test/java/test/mixin/TestMixin.java) for usage.
 
