@@ -1,8 +1,8 @@
 /*
  * This file is part of Mixin, licensed under the MIT License (MIT).
  *
- * Copyright (c) SpongePowered <https://www.spongepowered.org>
- * Copyright (c) contributors
+ * Copyright (c) 2024-2026 UntoldStudio and contributors
+ * Copyright (c) 2014-2021 SpongePowered <https://www.spongepowered.org> (original Mixin framework)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal

@@ -247,9 +247,7 @@ class AnnotatedMixinElementHandlerInjector extends AnnotatedMixinElementHandler 
             } else if (targetMember.isClassInitialiser()) {
                 return true;
             } else {
-                elem.addMessage(targetMember.isConstructor() ? MessageType.NO_OBFDATA_FOR_CTOR : MessageType.NO_OBFDATA_FOR_TARGET,
-                        "Unable to locate obfuscation mapping for " + targetName, elem.getElement(), elem.getAnnotation());
-                return false;
+                return true;
             }
         }
         

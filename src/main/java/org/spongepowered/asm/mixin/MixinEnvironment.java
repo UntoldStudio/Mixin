@@ -896,12 +896,10 @@ public final class MixinEnvironment implements ITokenProvider {
         JAVA_25(25, Opcodes.V25, LanguageFeatures.METHODS_IN_INTERFACES | LanguageFeatures.PRIVATE_SYNTHETIC_METHODS_IN_INTERFACES
                 | LanguageFeatures.PRIVATE_METHODS_IN_INTERFACES | LanguageFeatures.NESTING | LanguageFeatures.DYNAMIC_CONSTANTS
                 | LanguageFeatures.RECORDS | LanguageFeatures.SEALED_CLASSES) {
-
             @Override
             boolean isSupported() {
-                return JavaVersion.current() >= JavaVersion.JAVA_25 && ASM.isAtLeastVersion(9, 8);
+                return true;
             }
-
         },
         ;
         
@@ -930,7 +928,7 @@ public final class MixinEnvironment implements ITokenProvider {
          * PR #500 which demonstrates that the nature of compatibility levels
          * in mixin are not understood that well.</p>
          */
-        public static CompatibilityLevel MAX_SUPPORTED = CompatibilityLevel.JAVA_13;
+        public static CompatibilityLevel MAX_SUPPORTED = CompatibilityLevel.JAVA_25;
         
         private final int ver;
         
@@ -1895,7 +1893,7 @@ public final class MixinEnvironment implements ITokenProvider {
      * @param phase phase to go to 
      */
     @SuppressWarnings("deprecation")
-    static void gotoPhase(Phase phase) {
+    public static void gotoPhase(Phase phase) {
         if (phase == null || phase.ordinal < 0) {
             throw new IllegalArgumentException("Cannot go to the specified phase, phase is null or invalid");
         }

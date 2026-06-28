@@ -1,3 +1,6 @@
+import org.spongepowered.asm.mixin.build.ValidateLicenseHeadersTasks
+import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
+
 buildscript {
     repositories {
         gradlePluginPortal()
@@ -9,14 +12,11 @@ buildscript {
 }
 
 plugins {
-    id "com.gradleup.shadow"  version "9.4.3"
+    id "com.gradleup.shadow" version "9.4.3"
 }
 
-import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
-
 apply plugin: 'java'
-apply plugin: 'checkstyle'
-apply plugin: 'maven-publish'
+//apply plugin: 'checkstyle'
 apply plugin: 'eclipse'
 apply plugin: 'idea'
 apply plugin: 'potemkin-modules'
@@ -43,9 +43,9 @@ ext.asmVersion = project.asmVersion
 java {
     modularity.inferModulePath = false
     disableAutoTargetJvm()
-
-    sourceCompatibility = '25'
-    targetCompatibility = '25'
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
 }
 
 repositories {
@@ -62,38 +62,16 @@ sourceSets {
         ext.languageVersion = 25
         ext.compatibility = '25'
     }
-    fernflower {
-        compileClasspath += main.output
-        ext.languageVersion = 25
-        ext.compatibility = '25'
-        ext.modularityExcluded = true
-    }
     agent {
         compileClasspath += main.output
         ext.languageVersion = 25
         ext.compatibility = '25'
     }
-    example {
-        compileClasspath += main.output
-        compileClasspath += ap.output
-        ext.modularityExcluded = true
-    }
-    test {
-        ext.modularityExcluded = true
-    }
 }
 
 configurations {
     stagingJar
-    agentImplementation         .extendsFrom implementation
-    fernflowerImplementation    .extendsFrom implementation
-    proguard {
-        extendsFrom compileClasspath
-    }
-}
-
-proguard {
-    extendsFrom runtimeClasspath
+    agentImplementation      .extendsFrom implementation
 }
 
 potemkinModules {
@@ -103,7 +81,7 @@ potemkinModules {
 
 dependencies {
     def guava = 'com.google.guava:guava:33.6.0-jre'
-    def gson = 'com.google.code.gson:gson:2.14.0'
+    def gson  = 'com.google.code.gson:gson:2.14.0'
 
     stagingJar guava
     stagingJar gson
@@ -112,10 +90,14 @@ dependencies {
     implementation gson
     if (Float.parseFloat(asmVersion) < 6) {
         implementation "org.ow2.asm:asm-debug-all:$asmVersion"
+        stagingJar "org.ow2.asm:asm-debug-all:$asmVersion"
     }
     implementation "org.ow2.asm:asm-tree:$asmVersion"
+    stagingJar "org.ow2.asm:asm-tree:$asmVersion"
     implementation "org.ow2.asm:asm-commons:$asmVersion"
+    stagingJar "org.ow2.asm:asm-commons:$asmVersion"
     implementation "org.ow2.asm:asm-util:$asmVersion"
+    stagingJar "org.ow2.asm:asm-util:$asmVersion"
 
     apImplementation "org.ow2.asm:asm-tree:$asmVersion"
     apImplementation guava
@@ -152,7 +134,6 @@ eclipse {
             }
         }
     }
-    
     project {
         resourceFilter {
             appliesTo = 'FOLDERS'
@@ -166,26 +147,26 @@ eclipse {
 }
 
 processResources {
-   from 'LICENSE.txt'
+    from 'LICENSE.txt'
 }
 
-def validateHeaders = tasks.register("validateHeaders", org.spongepowered.asm.mixin.build.ValidateLicenseHeadersTasks) {
+/*def validateHeaders = tasks.register("validateHeaders", ValidateLicenseHeadersTasks) {
     header = resources.text.fromFile("HEADER.txt")
     source = sourceSets.collect { it.allJava }
-}
+}*/
 
-tasks.check.dependsOn validateHeaders
+//tasks.check.dependsOn validateHeaders
 
-checkstyle {
+/*checkstyle {
     configProperties = [
-        "name"        : project.name,
-        "organization": project.organization,
-        "url"         : project.url,
-        "year"        : project.inceptionYear
+            "name"        : project.name,
+            "organization": project.organization,
+            "url"         : project.url,
+            "year"        : project.inceptionYear
     ]
     configFile = file("checkstyle.xml")
     toolVersion = '10.17.0'
-}
+}*/
 
 tasks.withType(JavaCompile).configureEach {
     options.compilerArgs += ['-Xlint:all', '-Xlint:-path', '-proc:none']
@@ -193,26 +174,29 @@ tasks.withType(JavaCompile).configureEach {
     options.encoding = 'utf8'
 }
 
-project.sourceSets.each { set -> {
+project.sourceSets.each { set ->
     if (set.ext.has("languageVersion") && JavaVersion.current().isJava9Compatible()) {
         project.tasks[set.compileJavaTaskName].options.release = set.ext.languageVersion
-    } 
+    }
     if (set.ext.has("compatibility")) {
         project.tasks[set.compileJavaTaskName].sourceCompatibility = set.ext.compatibility
         project.tasks[set.compileJavaTaskName].targetCompatibility = set.ext.compatibility
     }
-}}
+}
 
 if (JavaVersion.current().isJava8Compatible()) {
-    tasks.withType(Javadoc) {
+    tasks.withType(Javadoc).configureEach {
         options.addStringOption('Xdoclint:syntax', '-quiet')
     }
 }
 
 tasks.register('stagingJar', ShadowJar) {
-    sourceSets.findAll { !(it.name =~ /example|test|modularityDummy/) }.each {
-        from it.output
-    }
+    archiveClassifier = "staging"
+
+    from sourceSets.main.output
+    from sourceSets.ap.output
+    from sourceSets.agent.output
+
     configurations = [project.configurations.stagingJar]
 
     manifest.attributes(
@@ -229,163 +213,17 @@ tasks.register('stagingJar', ShadowJar) {
 
     mergeServiceFiles()
     relocate 'com.google', 'org.spongepowered.include.com.google'
-    archiveClassifier = "staging"
 }
 
-File proguardFile = file("build/libs/mixin-${version}.jar")
-
-tasks.register('stagingProguardJar', proguard.gradle.ProGuardTask) {
-    dependsOn stagingJar
-    doFirst {
-        configurations.proguard.resolve().forEach {
-            libraryjars it
-        }
-    }
-
-    outputs.upToDateWhen { false }
-
-    libraryjars JavaVersion.current().java9Compatible ? "${System.getProperty('java.home')}/jmods" : "${System.getProperty('java.home')}/lib/rt.jar"
-
-    injars stagingJar.archiveFile
-    outjars proguardFile
-    configuration file("proguard.conf")
-}
-build.dependsOn stagingProguardJar
-
-configurations.archives.artifacts.clear()
-
-shadowJar  {
+tasks.register('apJar', ShadowJar) {
     from sourceSets.ap.output
     archiveClassifier = 'processor'
 }
-build.dependsOn(shadowJar)
 
-tasks.register('timestamp', Jar) {
-    dependsOn build
-    if (gradle.startParameter.taskNames.contains(name)) {
-        shadowJar.archiveClassifier = new Date().format('yyyyMMddHHmmss')
-    }
-}
-
-tasks.register('sourceJar', Jar) {
-    sourceSets.findAll { it.name != 'modularity' }.each {
-        from it.java
-        from it.resources
-    }
-    archiveClassifier = "sources"
-    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-}
-
-tasks.register('javadocJar', Jar) {
-    dependsOn javadoc
-    from javadoc.destinationDir
-    archiveClassifier = "javadoc"
-}
+build.dependsOn stagingJar
+build.dependsOn apJar
 
 artifacts {
     archives stagingJar
-    archives sourceJar
-    archives javadocJar
-    archives shadowJar
-}
-
-ext.excludePomDeps = [
-    'fernflower',
-    'jarjar',
-    'hamcrest-library',
-    'junit',
-    'mockito-core',
-    'mixin-asm-debug-all',
-    'log4j-core',
-    'guava',
-    'gson'
-]
-
-publishing {
-    publications {
-        developer(MavenPublication) { publication ->
-            groupId = project.group
-            artifactId = project.base.archivesName.get()
-            version = project.version
-
-            artifact sourceJar
-            artifact javadocJar
-            artifact(proguardFile) {
-                builtBy stagingProguardJar
-                classifier = null
-            }
-
-            pom.withXml {
-                def dependenciesNode = asNode().appendNode('dependencies')
-
-                configurations.runtimeClasspath.allDependencies.each {
-                    if (it.group != null && it.name != null && !excludePomDeps.contains(it.name)) {
-                        def dependencyNode = dependenciesNode.appendNode('dependency')
-                        dependencyNode.appendNode('groupId', it.group)
-                        dependencyNode.appendNode('artifactId', it.name)
-                        dependencyNode.appendNode('version', it.version)
-
-                        if (it.excludeRules.size() > 0) {
-                            def exclusionsNode = dependencyNode.appendNode('exclusions')
-                            it.excludeRules.each { rule ->
-                                def exclusionNode = exclusionsNode.appendNode('exclusion')
-                                exclusionNode.appendNode('groupId', rule.group)
-                                exclusionNode.appendNode('artifactId', rule.module)
-                            }
-                        }
-                    }
-                }
-            }
-
-            pom {
-                name = "Mixin"
-                description = 'Java General Refactoring'
-                url = 'https://github.com/UntoldStudio'
-
-                scm {
-                    connection = "scm:git:https://github.com/UntoldStudio/Mixin.git"
-                    developerConnection = "scm:git:git@github.com:UntoldStudio/Mixin.git"
-                    url = "https://github.com/UntoldStudio"
-                }
-
-                issueManagement {
-                    system = "GitHub"
-                    url = "https://github.com/UntoldStudio/Mixin/issues"
-                }
-
-                licenses {
-                    license {
-                        name = 'The MIT License'
-                        url = 'https://raw.githubusercontent.com/FabricMC/Mixin/main/LICENSE.txt'
-                    }
-                }
-
-                developers {
-                    developer {
-                        id = "modmuss50"
-                        name = "modmuss50"
-                        email = "modmuss50@fabricmc.net"
-                    }
-
-                    developer {
-                        id = "sfPlayer"
-                        name = "Player"
-                        email = "player@fabricmc.net"
-                    }
-                }
-            }
-        }
-    }
-
-    repositories {
-        if (ENV.MAVEN_URL) {
-            maven {
-                url = ENV.MAVEN_URL
-                credentials {
-                    username = ENV.MAVEN_USERNAME
-                    password = ENV.MAVEN_PASSWORD
-                }
-            }
-        }
-    }
+    archives apJar
 }

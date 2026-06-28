@@ -816,11 +816,6 @@ class MixinInfo implements Comparable<MixinInfo>, IMixinInfo {
     private final transient IMixinService service;
 
     /**
-     * Configuration plugin
-     */
-    private final transient PluginHandle plugin;
-
-    /**
      * The environment phase in which this mixin was initialised
      */
     private final transient Phase phase;
@@ -860,16 +855,14 @@ class MixinInfo implements Comparable<MixinInfo>, IMixinInfo {
      * 
      * @param parent configuration which owns this mixin, the parent
      * @param name name of this mixin (class name stub)
-     * @param plugin mixin config companion plugin handle
      * @param ignorePlugin true to prevent the plugin from filtering targets of
      *      this mixin
      */
-    MixinInfo(IMixinService service, MixinConfig parent, String name, PluginHandle plugin, boolean ignorePlugin, Extensions extensions) {
+    MixinInfo(IMixinService service, MixinConfig parent, String name, boolean ignorePlugin, Extensions extensions) {
         this.service = service;
         this.parent = parent;
         this.name = name;
         this.className = parent.getMixinPackage() + name;
-        this.plugin = plugin;
         this.phase = parent.getEnvironment().getPhase();
         this.strict = parent.getEnvironment().getOption(Option.DEBUG_TARGETS);
         this.extensions = extensions;
@@ -1009,10 +1002,7 @@ class MixinInfo implements Comparable<MixinInfo>, IMixinInfo {
      * @return true if the mixin should be a pplied
      */
     private boolean shouldApplyMixin(boolean ignorePlugin, String targetName) {
-        Section pluginTimer = this.profiler.begin("plugin");
-        boolean result = ignorePlugin || this.plugin.shouldApplyMixin(targetName, this.className);
-        pluginTimer.end();
-        return result;
+        return true;
     }
 
     /**
@@ -1372,29 +1362,13 @@ class MixinInfo implements Comparable<MixinInfo>, IMixinInfo {
      * Called immediately before the mixin is applied to targetClass
      */
     public void preApply(String transformedName, ClassNode targetClass) throws Exception {
-        if (this.plugin.isAvailable()) {
-            Section pluginTimer = this.profiler.begin("plugin");
-            try {
-                this.plugin.preApply(transformedName, targetClass, this.className, this);
-            } finally {
-                pluginTimer.end();
-            }
-        }
+        // Plugin removed
     }
 
     /**
      * Called immediately after the mixin is applied to targetClass
      */
     public void postApply(String transformedName, ClassNode targetClass) throws Exception {
-        if (this.plugin.isAvailable()) {
-            Section pluginTimer = this.profiler.begin("plugin");
-            try {
-                this.plugin.postApply(transformedName, targetClass, this.className, this);
-            } finally {
-                pluginTimer.end();
-            }
-        }
-        
         this.parent.postApply(transformedName, targetClass);
         this.info.addAppliedMixin(this);
     }

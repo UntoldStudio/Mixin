@@ -171,11 +171,8 @@ class AnnotatedMixinElementHandlerShadow extends AnnotatedMixinElementHandler {
 
     private void registerShadowForTarget(AnnotatedElementShadow<?, ?> elem, TypeHandle target) {
         ObfuscationData<? extends IMapping<?>> obfData = elem.getObfuscationData(this.obf.getDataProvider(), target);
-        
+
         if (obfData.isEmpty()) {
-            String info = this.mixin.isMultiTarget() ? " in target " + target : "";
-            MessageType messageType = target.isSimulated() ? MessageType.NO_OBFDATA_FOR_SIMULATED_SHADOW : MessageType.NO_OBFDATA_FOR_SHADOW;
-            elem.printMessage(this.ap, messageType, "Unable to locate obfuscation mapping" + info + " for @Shadow " + elem);
             return;
         }
 

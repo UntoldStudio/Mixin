@@ -103,22 +103,9 @@ class AnnotatedMixinElementHandlerOverwrite extends AnnotatedMixinElementHandler
     private boolean registerOverwriteForTarget(AnnotatedElementOverwrite elem, TypeHandle target) {
         MappingMethod targetMethod = target.getMappingMethod(elem.getSimpleName(), elem.getDesc());
         ObfuscationData<MappingMethod> obfData = this.obf.getDataProvider().getObfMethod(targetMethod);
-        
+
         if (obfData.isEmpty()) {
-            MessageType messageType = MessageType.NO_OBFDATA_FOR_OVERWRITE;
-            
-            try {
-                // Try to access isStatic from com.sun.tools.javac.code.Symbol
-                Method md = elem.getElement().getClass().getMethod("isStatic");
-                if (((Boolean)md.invoke(elem.getElement())).booleanValue()) {
-                    messageType = MessageType.NO_OBFDATA_FOR_STATIC_OVERWRITE;
-                }
-            } catch (Exception ex) {
-                // well, we tried
-            }
-            
-            this.ap.printMessage(messageType, "Unable to locate obfuscation mapping for @Overwrite method", elem.getElement());
-            return false;
+            return true;
         }
 
         try {

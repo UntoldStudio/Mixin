@@ -250,7 +250,6 @@ final class MixinConfig implements Comparable<MixinConfig>, IMixinConfig {
     
     /**
      * List of required {@link Feature} flags, can be used with or in place
-     * of {@link #minVersion} to provide sanity checking when a config is loaded
      */
     @SerializedName("requiredFeatures")
     private List<String> requiredFeatures;
@@ -395,11 +394,7 @@ final class MixinConfig implements Comparable<MixinConfig>, IMixinConfig {
      */
     @SerializedName("overwrites")
     private OverwriteOptions overwriteOptions;
-    
-    /**
-     * Config plugin, if supplied
-     */
-    private transient PluginHandle plugin;
+
     
     /**
      * Reference mapper for injectors
@@ -786,9 +781,6 @@ final class MixinConfig implements Comparable<MixinConfig>, IMixinConfig {
      * Initialise the config once it's selected
      */
     void onSelect() {
-        this.plugin = new PluginHandle(this, this.service, this.pluginClassName);
-        this.plugin.onLoad(Strings.nullToEmpty(this.mixinPackage));
-        
         if (Strings.isNullOrEmpty(this.mixinPackage)) {
             return;
         }
@@ -796,16 +788,12 @@ final class MixinConfig implements Comparable<MixinConfig>, IMixinConfig {
         if (!this.mixinPackage.endsWith(".")) {
             this.mixinPackage += ".";
         }
-        
-        boolean suppressRefMapWarning = false; 
-        
+
+        boolean suppressRefMapWarning = false;
+
         if (this.refMapperConfig == null) {
-            this.refMapperConfig = this.plugin.getRefMapperConfig();
-            
-            if (this.refMapperConfig == null) {
-                suppressRefMapWarning = true;
-                this.refMapperConfig = ReferenceMapper.DEFAULT_RESOURCE;
-            }
+            suppressRefMapWarning = true;
+            this.refMapperConfig = ReferenceMapper.DEFAULT_RESOURCE;
         }
         
         this.refMapper = ReferenceMapper.read(this.refMapperConfig);
@@ -873,11 +861,6 @@ final class MixinConfig implements Comparable<MixinConfig>, IMixinConfig {
     }
     
     void postInitialise(Extensions extensions) {
-        if (this.plugin != null) {
-            List<String> pluginMixins = this.plugin.getMixins();
-            this.prepareMixins("companion plugin", pluginMixins, true, extensions);
-        }
-        
         for (Iterator<MixinInfo> iter = this.mixins.iterator(); iter.hasNext();) {
             MixinInfo mixin = iter.next();
             try {
@@ -930,7 +913,7 @@ final class MixinConfig implements Comparable<MixinConfig>, IMixinConfig {
             MixinInfo mixin = null;
             
             try {
-                this.pendingMixins.add(mixin = new MixinInfo(this.service, this, mixinClass, this.plugin, ignorePlugin, extensions));
+                this.pendingMixins.add(mixin = new MixinInfo(this.service, this, mixinClass, ignorePlugin, extensions));
                 MixinConfig.globalMixinList.add(fqMixinClass);
             } catch (InvalidMixinException ex) {
                 if (this.required) {
@@ -1204,7 +1187,7 @@ final class MixinConfig implements Comparable<MixinConfig>, IMixinConfig {
      */
     @Override
     public IMixinConfigPlugin getPlugin() {
-        return this.plugin.get();
+        return null;
     }
 
     /**
