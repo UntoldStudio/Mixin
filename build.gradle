@@ -15,15 +15,15 @@ plugins {
     id "com.gradleup.shadow" version "9.4.3"
 }
 
+apply plugin: 'maven-publish'
 apply plugin: 'java'
-//apply plugin: 'checkstyle'
 apply plugin: 'eclipse'
 apply plugin: 'idea'
 apply plugin: 'potemkin-modules'
 
 defaultTasks 'check', 'build'
 
-group = 'top.untoldstudio'
+group = 'com.github.UntoldStudio'
 version = buildVersion
 
 base {
@@ -150,24 +150,6 @@ processResources {
     from 'LICENSE.txt'
 }
 
-/*def validateHeaders = tasks.register("validateHeaders", ValidateLicenseHeadersTasks) {
-    header = resources.text.fromFile("HEADER.txt")
-    source = sourceSets.collect { it.allJava }
-}*/
-
-//tasks.check.dependsOn validateHeaders
-
-/*checkstyle {
-    configProperties = [
-            "name"        : project.name,
-            "organization": project.organization,
-            "url"         : project.url,
-            "year"        : project.inceptionYear
-    ]
-    configFile = file("checkstyle.xml")
-    toolVersion = '10.17.0'
-}*/
-
 tasks.withType(JavaCompile).configureEach {
     options.compilerArgs += ['-Xlint:all', '-Xlint:-path', '-proc:none']
     options.deprecation = true
@@ -226,4 +208,13 @@ build.dependsOn apJar
 artifacts {
     archives stagingJar
     archives apJar
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            artifact(tasks.named('stagingJar').get())
+            artifact(tasks.named('apJar').get()) { classifier = 'processor' }
+        }
+    }
 }
