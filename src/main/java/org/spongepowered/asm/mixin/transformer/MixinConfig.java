@@ -855,7 +855,7 @@ final class MixinConfig implements Comparable<MixinConfig>, IMixinConfig {
             case UNKNOWN:
                 //$FALL-THROUGH$
             default:
-                this.logger.warn("Mixin environment was unable to detect the current side, sided mixins will not be applied");
+                //this.logger.warn("Mixin environment was unable to detect the current side, sided mixins will not be applied");
                 break;
         }
     }

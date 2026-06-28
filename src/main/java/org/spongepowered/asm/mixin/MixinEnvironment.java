@@ -898,7 +898,7 @@ public final class MixinEnvironment implements ITokenProvider {
                 | LanguageFeatures.RECORDS | LanguageFeatures.SEALED_CLASSES) {
             @Override
             boolean isSupported() {
-                return true;
+                return JavaVersion.current() >= JavaVersion.JAVA_25 && ASM.isAtLeastVersion(9, 8);
             }
         },
         ;

@@ -123,6 +123,11 @@ public final class ASM {
      * @return ASM library version as string
      */
     public static String getVersionString() {
+        VersionNumber pkgVer = getPackageVersion(Opcodes.class);
+        if (pkgVer.getMajor() > 0) {
+            return String.format("ASM %d.%d.%d (%s)",
+                    pkgVer.getMajor(), pkgVer.getMinor(), pkgVer.getPatch(), ASM.maxVersion);
+        }
         return String.format("ASM %d.%d%s (%s)",
                 ASM.majorVersion, ASM.implMinorVersion, ASM.patchVersion > 0 ? "." + ASM.patchVersion : "", ASM.maxVersion);
     }
@@ -166,26 +171,37 @@ public final class ASM {
             if (field.getType() != Integer.TYPE) {
                 continue;
             }
-            
+
             try {
                 String name = field.getName();
                 int version = field.getInt(null);
                 if (name.startsWith("ASM")) {
-                    // int patch = version & 0xFF;
                     int minor = (version >> 8) & 0xFF;
                     int major = (version >> 16) & 0xFF;
                     boolean experimental = ((version >> 24) & 0xFF) != 0;
-                    
+
                     if (major >= ASM.majorVersion) {
                         ASM.maxVersion = name;
                         if (!experimental) {
                             apiVersion = version;
                             ASM.majorVersion = major;
                             ASM.minorVersion = ASM.implMinorVersion = minor;
-                            
+
                             if (packageVersion.getMajor() == major && minor == 0) {
                                 ASM.implMinorVersion = packageVersion.getMinor();
                                 ASM.patchVersion = packageVersion.getPatch();
+                            }
+                        } else {
+                            if (packageVersion.getMajor() > 0) {
+                                ASM.majorVersion = packageVersion.getMajor();
+                                ASM.minorVersion = 0;
+                                ASM.implMinorVersion = packageVersion.getMinor();
+                                ASM.patchVersion = packageVersion.getPatch();
+                            } else {
+                                ASM.majorVersion = major;
+                                ASM.implMinorVersion = minor;
+                                ASM.minorVersion = 0;
+                                ASM.patchVersion = 0;
                             }
                         }
                     }
@@ -205,7 +221,7 @@ public final class ASM {
                 throw new Error(ex);
             }
         }
-        
+
         return apiVersion;
     }
 
