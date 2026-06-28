@@ -11,12 +11,12 @@ repositories {
     maven { url 'https://jitpack.io' }
 }
 dependencies {
-    implementation 'com.github.UntoldStudio:Mixin:0.1.0.0'
-    annotationProcessor 'com.github.UntoldStudio:Mixin:0.1.0.0'
+    implementation 'com.github.UntoldStudio:Mixin:0.1.1.0'
+    annotationProcessor 'com.github.UntoldStudio:Mixin:0.1.1.0'
 }
 ```
 
-(Replace `0.1.0.0` with the latest release tag or `main-SNAPSHOT`.)
+Replace `0.1.1.0` with the latest release tag or `main-SNAPSHOT`.
 
 ## Core Concepts
 
@@ -80,6 +80,7 @@ In your application entry point:
 
 ```java
 import org.spongepowered.asm.launch.MixinBootstrap;
+import org.spongepowered.asm.launch.platform.CommandLineOptions;
 import org.spongepowered.asm.mixin.MixinEnvironment;
 import org.spongepowered.asm.mixin.Mixins;
 import org.spongepowered.asm.mixin.transformer.MixinTransformer;
@@ -91,10 +92,12 @@ public class Main {
     public static void main(String[] args) throws Exception {
         // Step 1: Initialize the Mixin subsystem
         MixinBootstrap.init();
+        MixinEnvironment.init(MixinEnvironment.Phase.DEFAULT);
         MixinEnvironment.gotoPhase(MixinEnvironment.Phase.DEFAULT);
         Mixins.addConfiguration("mixins.example.json");
 
-        // Step 2: Create the transformer
+        // Step 2: Prepare configs and create transformer
+        MixinBootstrap.getPlatform().prepare(CommandLineOptions.defaultArgs());
         MixinTransformer transformer = new MixinTransformer();
 
         // Step 3: Load the target class and apply mixins
@@ -174,7 +177,7 @@ cd Mixin
 ```
 
 The output JARs are in `build/libs/`:
-- `mixin-{version}-staging.jar` – runtime and annotation processor (fat jar)
+- `mixin-{version}.jar` – runtime and annotation processor (fat jar)
 - `mixin-{version}-processor.jar` – annotation processor only
 
 ## License
