@@ -28,11 +28,6 @@ base {
     archivesName = 'mixin'
 }
 
-def ENV = System.getenv()
-if (!ENV.CI) {
-    version = version + "-local"
-}
-
 ext.projectName = 'Mixin'
 ext.inceptionYear = '2014'
 ext.packaging = 'jar'
@@ -206,6 +201,7 @@ artifacts {
 publishing {
     publications {
         mavenJava(MavenPublication) {
+            artifactId = 'Mixin'
             artifact(tasks.named('stagingJar').get())
             artifact(tasks.named('apJar').get()) { classifier = 'processor' }
         }
