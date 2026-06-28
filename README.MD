@@ -2,6 +2,8 @@
 
 A lightweight, standalone bytecode weaving framework based on [ASM](https://asm.ow2.io/) and the SpongePowered Mixin project, tailored for modern Java applications.
 
+WARNING:Please make sure to use version 0.1.1.0 or higher
+
 ## Installation
 
 Add the JitPack repository and dependency to your `build.gradle`:
