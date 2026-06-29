@@ -231,6 +231,23 @@ public class MixinAgent implements IHotSwap {
         MixinBootstrap.getPlatform().prepare(CommandLineOptions.defaultArgs());
 
         List<String> configs = new ArrayList<>();
+
+        try {
+            URL agentJar = MixinAgent.class.getProtectionDomain().getCodeSource().getLocation();
+            if (agentJar != null) {
+                try (JarFile jar = new JarFile(agentJar.getFile())) {
+                    String mixinConfigsAttr = jar.getManifest().getMainAttributes().getValue("MixinConfigs");
+                    if (mixinConfigsAttr != null) {
+                        for (String config : mixinConfigsAttr.split("[, ]+")) {
+                            if (!config.isEmpty()) configs.add(config);
+                        }
+                    }
+                }
+            }
+        } catch (Exception _){
+
+        }
+
         ClassLoader loader = ClassLoader.getSystemClassLoader();
         try {
             Enumeration<URL> roots = loader.getResources("");
