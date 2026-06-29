@@ -221,7 +221,7 @@ tasks.register('pushChanges') {
         } else {
             println '当前更改的文件:'
             println status
-            print '请输入提交信息: '
+            println '请输入提交信息: '
             def reader = new BufferedReader(new InputStreamReader(System.in))
             def message = reader.readLine()
             if (message == null || message.trim().isEmpty()) {
@@ -257,7 +257,7 @@ tasks.register('releaseVersion') {
         } else {
             println '当前更改的文件:'
             println status
-            print '请输入提交信息: '
+            println '请输入提交信息: '
             def reader = new BufferedReader(new InputStreamReader(System.in))
             def message = reader.readLine()
             if (message == null || message.trim().isEmpty()) {
