@@ -1,15 +1,5 @@
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 
-buildscript {
-    repositories {
-        gradlePluginPortal()
-        mavenCentral()
-    }
-    dependencies {
-        classpath 'com.guardsquare:proguard-gradle:' + (JavaVersion.current().isCompatibleWith(JavaVersion.VERSION_11) ? '7.5.0' : '7.1.0')
-    }
-}
-
 plugins {
     id "com.gradleup.shadow" version "9.4.3"
 }
@@ -55,7 +45,7 @@ sourceSets {
         ext.languageVersion = 25
         ext.compatibility = '25'
     }
-    agent {
+    api {
         compileClasspath += main.output
         ext.languageVersion = 25
         ext.compatibility = '25'
@@ -64,7 +54,6 @@ sourceSets {
 
 configurations {
     stagingJar
-    agentImplementation      .extendsFrom implementation
 }
 
 dependencies {
@@ -164,12 +153,17 @@ tasks.named('jar') {
     enabled = false
 }
 
+tasks.named('shadowJar') {
+    enabled = false
+}
+
 tasks.register('stagingJar', ShadowJar) {
     archiveClassifier = ""
+    archiveFileName = 'mixin.jar'
 
     from sourceSets.main.output
     from sourceSets.ap.output
-    from sourceSets.agent.output
+    from sourceSets.api.output
 
     configurations = [project.configurations.stagingJar]
 
@@ -192,6 +186,7 @@ tasks.register('stagingJar', ShadowJar) {
 tasks.register('apJar', ShadowJar) {
     from sourceSets.ap.output
     archiveClassifier = 'processor'
+    archiveFileName = 'mixin-processor.jar'
 }
 
 build.dependsOn stagingJar

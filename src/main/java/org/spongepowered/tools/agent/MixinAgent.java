@@ -181,6 +181,14 @@ public class MixinAgent implements IHotSwap {
         }
     }
 
+    public MixinAgent(IMixinTransformer classTransformer, boolean autoRegister) {
+        this.classTransformer = classTransformer;
+        MixinAgent.agents.add(this);
+        if (autoRegister && MixinAgent.instrumentation != null) {
+            this.initTransformer();
+        }
+    }
+
     private void initTransformer() {
         MixinAgent.instrumentation.addTransformer(new Transformer(), true);
     }
@@ -211,18 +219,7 @@ public class MixinAgent implements IHotSwap {
         }
     }
 
-    /**
-     * Initialize the java agent
-     *
-     * <p>This will be called automatically if the jar is in a -javaagent java
-     * command line argument</p>
-     *
-     * @param arg Ignored
-     * @param instrumentation Instance to use to transform the mixins
-     *
-     * We only scan all mixins.*.json or *.mixin.json under the resource directory
-     */
-    public static void premain(String arg, Instrumentation instrumentation) throws IOException {
+    public static void agentStart(String jsonPath) throws IOException {
         System.setProperty("mixin.hotSwap", "true");
 
         MixinBootstrap.init();
@@ -230,83 +227,106 @@ public class MixinAgent implements IHotSwap {
         MixinEnvironment.gotoPhase(MixinEnvironment.Phase.DEFAULT);
         MixinBootstrap.getPlatform().prepare(CommandLineOptions.defaultArgs());
 
-        List<String> configs = new ArrayList<>();
+        if (jsonPath == null) {
+            List<String> configs = new ArrayList<>();
 
-        try {
-            URL agentJar = MixinAgent.class.getProtectionDomain().getCodeSource().getLocation();
-            if (agentJar != null) {
-                try (JarFile jar = new JarFile(agentJar.getFile())) {
-                    String mixinConfigsAttr = jar.getManifest().getMainAttributes().getValue("MixinConfigs");
-                    if (mixinConfigsAttr != null) {
-                        for (String config : mixinConfigsAttr.split("[, ]+")) {
-                            if (!config.isEmpty()) configs.add(config);
+            try {
+                URL agentJar = MixinAgent.class.getProtectionDomain().getCodeSource().getLocation();
+                if (agentJar != null) {
+                    try (JarFile jar = new JarFile(agentJar.getFile())) {
+                        String mixinConfigsAttr = jar.getManifest().getMainAttributes().getValue("MixinConfigs");
+                        if (mixinConfigsAttr != null) {
+                            for (String config : mixinConfigsAttr.split("[, ]+")) {
+                                if (!config.isEmpty()) configs.add(config);
+                            }
                         }
                     }
                 }
+            } catch (Exception _){
+
             }
-        } catch (Exception _){
 
-        }
-
-        ClassLoader loader = ClassLoader.getSystemClassLoader();
-        try {
-            Enumeration<URL> roots = loader.getResources("");
-            while (roots.hasMoreElements()){
-                URL url = roots.nextElement();
-                String protocol = url.getProtocol();
-                if ("file".equals(protocol)) {
-                    File dir = new File(url.getPath());
-                    if (dir.isDirectory()) {
-                        File[] files = dir.listFiles();
-                        if (files != null) {
-                            for (File file : files) {
-                                String name = file.getName();
-                                if ((name.startsWith("mixins.") && name.endsWith(".json")) || name.endsWith(".mixin.json")){
-                                    configs.add(name);
+            ClassLoader loader = ClassLoader.getSystemClassLoader();
+            try {
+                Enumeration<URL> roots = loader.getResources("");
+                while (roots.hasMoreElements()){
+                    URL url = roots.nextElement();
+                    String protocol = url.getProtocol();
+                    if ("file".equals(protocol)) {
+                        File dir = new File(url.getPath());
+                        if (dir.isDirectory()) {
+                            File[] files = dir.listFiles();
+                            if (files != null) {
+                                for (File file : files) {
+                                    String name = file.getName();
+                                    if ((name.startsWith("mixins.") && name.endsWith(".json")) || name.endsWith(".mixin.json")){
+                                        configs.add(name);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    else if ("jar".equals(protocol)) {
+                        String jarPath = url.getPath();
+                        if (jarPath.startsWith("file:")) {
+                            jarPath = jarPath.substring(5);
+                        }
+                        int separator = jarPath.indexOf("!/");
+                        if (separator >= 0) {
+                            jarPath = jarPath.substring(0, separator);
+                        }
+                        try (JarFile jar = new JarFile(jarPath)) {
+                            Enumeration<JarEntry> entries = jar.entries();
+                            while (entries.hasMoreElements()) {
+                                JarEntry entry = entries.nextElement();
+                                String name = entry.getName();
+                                if (!entry.isDirectory() && !name.endsWith("/")) {
+                                    if ((name.startsWith("mixins.") && name.endsWith(".json")) || name.endsWith(".mixin.json")){
+                                        configs.add(name);
+                                    }
                                 }
                             }
                         }
                     }
                 }
-                else if ("jar".equals(protocol)) {
-                    String jarPath = url.getPath();
-                    if (jarPath.startsWith("file:")) {
-                        jarPath = jarPath.substring(5);
-                    }
-                    int separator = jarPath.indexOf("!/");
-                    if (separator >= 0) {
-                        jarPath = jarPath.substring(0, separator);
-                    }
-                    try (JarFile jar = new JarFile(jarPath)) {
-                        Enumeration<JarEntry> entries = jar.entries();
-                        while (entries.hasMoreElements()) {
-                            JarEntry entry = entries.nextElement();
-                            String name = entry.getName();
-                            if (!entry.isDirectory() && !name.endsWith("/")) {
-                                if ((name.startsWith("mixins.") && name.endsWith(".json")) || name.endsWith(".mixin.json")){
-                                    configs.add(name);
-                                }
-                            }
-                        }
-                    }
-                }
+            } catch (IOException e){
+                log(Level.FATAL, "Could not auto init Mixin:" + e.getMessage());
+                throw e;
             }
-        } catch (IOException e){
-            log(Level.FATAL, "Could not auto init Mixin:" + e.getMessage());
-            throw e;
-        }
-        List<String> targets = configs.stream().distinct().toList();
-        for (String target : targets) {
-            Mixins.addConfiguration(target);
+            List<String> targets = configs.stream().distinct().toList();
+            for (String target : targets) {
+                Mixins.addConfiguration(target);
+            }
+        } else {
+            Mixins.addConfiguration(jsonPath);
         }
 
-        new MixinTransformer();
+        MixinEnvironment.getCurrentEnvironment().setOption(MixinEnvironment.Option.HOT_SWAP, false);
+        IMixinTransformer transformer = new MixinTransformer();
+
+        new MixinAgent(transformer, false);
 
         MixinAgent.init(instrumentation);
     }
 
-    public static void agentmain(String arg, Instrumentation instrumentation) {
-        throw new RuntimeException("AgentMain is currently not supported");
+    public static void premain(String arg, Instrumentation instrumentation) throws IOException {
+        System.setProperty("mixin.hotSwap", "true");
+        MixinAgent.instrumentation = instrumentation;
+        agentStart(null);
+    }
+
+    public static void agentmain(String agentArgs, Instrumentation instrumentation) {
+        if (instrumentation == null) {
+            log(Level.ERROR, "Instrumentation is null in agentmain");
+            return;
+        }
+        System.setProperty("mixin.hotSwap", "true");
+        MixinAgent.instrumentation = instrumentation;
+        try {
+            agentStart(agentArgs);
+        } catch (IOException e) {
+            log(Level.ERROR, "Failed to start agent", e);
+        }
     }
 
     /**

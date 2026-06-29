@@ -2,8 +2,6 @@
 
 A lightweight, standalone bytecode weaving framework based on [ASM](https://asm.ow2.io/) and the SpongePowered Mixin project, tailored for modern Java applications.
 
-WARNING:Please make sure to use version 0.1.1.0 or higher
-
 ## Installation
 
 Add the JitPack repository and dependency to your `build.gradle`:
@@ -13,23 +11,58 @@ repositories {
     maven { url 'https://jitpack.io' }
 }
 dependencies {
-    implementation 'com.github.UntoldStudio:Mixin:0.1.1.0'
-    annotationProcessor 'com.github.UntoldStudio:Mixin:0.1.1.0'
+    implementation 'com.github.UntoldStudio:Mixin:0.2.0'
+    annotationProcessor 'com.github.UntoldStudio:Mixin:0.2.0'
 }
 ```
 
-Replace `0.1.1.0` with the latest release tag or `main-SNAPSHOT`.
+Replace `0.2.0` with the latest release tag.
 
 ## Core Concepts
 
 - **Mixin Class**: A class annotated with `@Mixin` that defines how to modify a target class.
 - **Target Class**: The original class you want to enhance or modify.
 - **Injections**: Methods annotated with `@Inject`, `@Redirect`, `@ModifyArg`, etc., which are woven into specific points in the target class.
-- **Configuration File**: A JSON file (`mixins.<name>.json`) that tells the framework which mixins to apply.
+- **Configuration File**: A JSON file (`mixins.<name>.json` or `*.mixin.json`) that tells the framework which mixins to apply.
 
 ## Quick Start
 
-### 1. Create a target class
+Choose the startup method that suits your project:
+
+### Method 1: Java Agent (zero‑code intrusion)
+
+Start your application with the `-javaagent` JVM argument:
+
+```shell
+java -javaagent:/path/to/mixin.jar -jar your-app.jar
+```
+
+The agent automatically scans the classpath for configuration files named `mixins.*.json` or `*.mixin.json` and applies the declared mixins. Your application code remains untouched.
+
+### Method 2: Dynamic attachment (non‑agent, no command‑line changes)
+
+Call `MixinLauncher.initializeMixin()` at the very beginning of your `main` method:
+
+```java
+import com.github.untoldstudio.mixin.api.MixinLauncher;
+
+public class Main {
+    public static void main(String[] args) {
+        MixinLauncher.initializeMixin("mixins.example.json");
+        // Now all mixin targets are automatically woven when loaded
+    }
+}
+```
+
+> **Note:** This method requires `-Djdk.attach.allowAttachSelf=true` and `--add-modules jdk.attach` to be added to your JVM arguments if you are using JDK 25+.
+
+### Method 3: Manual initialization (low‑level control)
+
+Use the classic bootstrap sequence and a custom class loader when you need full control over the transformation process. Refer to the [manual example](#manual-initialization-example) below.
+
+## Creating a Mixin
+
+1. **Target class**:
 
 ```java
 package com.example;
@@ -41,7 +74,7 @@ public class Greeter {
 }
 ```
 
-### 2. Create a Mixin class
+2. **Mixin class**:
 
 ```java
 package com.example.mixin;
@@ -61,9 +94,7 @@ public abstract class GreeterMixin {
 }
 ```
 
-### 3. Create a configuration file
-
-Place `mixins.example.json` in your resources folder:
+3. **Configuration file** (`mixins.example.json` in classpath root):
 
 ```json
 {
@@ -76,68 +107,7 @@ Place `mixins.example.json` in your resources folder:
 }
 ```
 
-### 4. Bootstrap Mixin and apply transformations
-
-In your application entry point:
-
-```java
-import org.spongepowered.asm.launch.MixinBootstrap;
-import org.spongepowered.asm.launch.platform.CommandLineOptions;
-import org.spongepowered.asm.mixin.MixinEnvironment;
-import org.spongepowered.asm.mixin.Mixins;
-import org.spongepowered.asm.mixin.transformer.MixinTransformer;
-import org.objectweb.asm.ClassReader;
-import org.objectweb.asm.ClassWriter;
-import org.objectweb.asm.tree.ClassNode;
-
-public class Main {
-    public static void main(String[] args) throws Exception {
-        // Step 1: Initialize the Mixin subsystem
-        MixinBootstrap.init();
-        MixinEnvironment.init(MixinEnvironment.Phase.DEFAULT);
-        MixinEnvironment.gotoPhase(MixinEnvironment.Phase.DEFAULT);
-        Mixins.addConfiguration("mixins.example.json");
-
-        // Step 2: Prepare configs and create transformer
-        MixinBootstrap.getPlatform().prepare(CommandLineOptions.defaultArgs());
-        MixinTransformer transformer = new MixinTransformer();
-
-        // Step 3: Load the target class and apply mixins
-        ClassReader reader = new ClassReader("com.example.Greeter");
-        ClassNode classNode = new ClassNode();
-        reader.accept(classNode, 0);
-
-        byte[] originalBytes = toByteArray(classNode);
-        byte[] transformedBytes = transformer.transformClassBytes(
-            "com.example.Greeter",
-            "com.example.Greeter",
-            originalBytes
-        );
-
-        // Step 4: Load the transformed class with a custom class loader
-        CustomClassLoader loader = new CustomClassLoader();
-        Class<?> transformedClass = loader.defineClass("com.example.Greeter", transformedBytes);
-        Object instance = transformedClass.getDeclaredConstructor().newInstance();
-        transformedClass.getMethod("sayHello", String.class).invoke(instance, "World");
-    }
-
-    private static byte[] toByteArray(ClassNode node) {
-        ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_MAXS);
-        node.accept(writer);
-        return writer.toByteArray();
-    }
-
-    static class CustomClassLoader extends ClassLoader {
-        public Class<?> defineClass(String name, byte[] b) {
-            return super.defineClass(name, b, 0, b.length);
-        }
-    }
-}
-```
-
 ## Advanced Injections
-
-This framework supports a wide range of injection types:
 
 | Annotation | Description |
 |------------|-------------|
@@ -149,26 +119,55 @@ This framework supports a wide range of injection types:
 | `@Shadow` | Access a private field from the target class |
 | `@Unique` | Add a brand new method to the target class |
 
-See the [test examples](src/test/java/test/mixin/TestMixin.java) for usage.
-
 ## Configuration Options
 
-The JSON configuration supports these keys:
-
-- `required` – fail if mixins cannot be applied (default: `false`)
+- `required` – fail if mixins cannot be applied
 - `package` – the package containing your mixin classes
 - `compatibilityLevel` – target Java version (`JAVA_8` through `JAVA_25`)
 - `mixins` – list of mixin class simple names
-- `client`/`server` – side‑specific mixin lists (if side detection is available)
-- `injectors` – custom injection point settings
-- `overwrites` – overwrite behaviour settings
+- `minVersion` – minimum required Mixin version (optional)
+
+## Manual Initialization Example
+
+If you choose manual control, here is a minimal setup:
+
+```java
+import org.spongepowered.asm.launch.MixinBootstrap;
+import org.spongepowered.asm.mixin.MixinEnvironment;
+import org.spongepowered.asm.mixin.Mixins;
+import org.spongepowered.asm.mixin.transformer.MixinTransformer;
+import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.tree.ClassNode;
+
+public class Main {
+    public static void main(String[] args) throws Exception {
+        MixinBootstrap.init();
+        MixinEnvironment.init(MixinEnvironment.Phase.DEFAULT);
+        Mixins.addConfiguration("mixins.example.json");
+        MixinEnvironment.gotoPhase(MixinEnvironment.Phase.DEFAULT);
+        MixinBootstrap.getPlatform().prepare(CommandLineOptions.defaultArgs());
+
+        MixinTransformer transformer = new MixinTransformer();
+        byte[] original = loadClassBytes("com.example.Greeter");
+        byte[] transformed = transformer.transformClassBytes(
+            "com.example.Greeter", "com.example.Greeter", original
+        );
+
+        CustomClassLoader loader = new CustomClassLoader();
+        Class<?> clazz = loader.defineClass("com.example.Greeter", transformed);
+        Object instance = clazz.getDeclaredConstructor().newInstance();
+        clazz.getMethod("sayHello", String.class).invoke(instance, "World");
+    }
+
+    // ... helper methods toByteArray, CustomClassLoader
+}
+```
 
 ## Limitations
 
-This standalone version **does not** include:
-- Minecraft‑specific `ModLauncher` or `LaunchWrapper` support
-- Automatic `ClassFileTransformer` registration via Java Agent (you must call `MixinTransformer` manually as shown above)
-- Built‑in side (client/server) detection
+- Minecraft‑specific launchers (`LaunchWrapper`, `ModLauncher`) are not supported.
+- Side detection (client/server) is not available.
 
 ## Building from Source
 
@@ -178,9 +177,10 @@ cd Mixin
 ./gradlew build
 ```
 
-The output JARs are in `build/libs/`:
-- `mixin-{version}.jar` – runtime and annotation processor (fat jar)
-- `mixin-{version}-processor.jar` – annotation processor only
+Output JARs in `build/libs/`:
+
+- `mixin.jar` – runtime, annotation processor, and API
+- `mixin-processor.jar` – annotation processor only
 
 ## License
 
