@@ -22,7 +22,7 @@ apply plugin: 'idea'
 defaultTasks 'check', 'build'
 
 group = 'com.github.UntoldStudio'
-version = project.findProperty('version') ?: '0.1.0.1'
+version = project.findProperty('buildVersion')
 
 base {
     archivesName = 'mixin'
@@ -209,5 +209,85 @@ publishing {
             artifact(tasks.named('stagingJar').get())
             artifact(tasks.named('apJar').get()) { classifier = 'processor' }
         }
+    }
+}
+
+tasks.register('pushChanges') {
+    description = '自动add、commit并推送当前分支'
+    doLast {
+        def status = ['git', 'status', '--porcelain'].execute(null, rootProject.projectDir).text.trim()
+        if (status.isEmpty()) {
+            println '工作区没有需要提交的更改, 直接推送'
+        } else {
+            println '当前更改的文件:'
+            println status
+            print '请输入提交信息: '
+            def reader = new BufferedReader(new InputStreamReader(System.in))
+            def message = reader.readLine()
+            if (message == null || message.trim().isEmpty()) {
+                throw new GradleException('提交信息不能为空')
+            }
+            project.exec {
+                commandLine 'git', 'add', '.'
+                workingDir = rootProject.projectDir
+            }
+            project.exec {
+                commandLine 'git', 'commit', '-m', message
+                workingDir = rootProject.projectDir
+            }
+        }
+        project.exec {
+            commandLine 'git', 'push', 'origin', 'HEAD'
+            workingDir = rootProject.projectDir
+        }
+        println '>>> 推送完成'
+    }
+}
+
+tasks.register('releaseVersion') {
+    description = '自动add、commit、push并创建发布标签'
+    doLast {
+        def tagName = project.version.toString()
+        if (tagName == null || tagName.isEmpty() || tagName.contains('unspecified')) {
+            throw new GradleException("版本号无效: '${tagName}', 请设置gradle.properties中的buildVersion")
+        }
+        def status = ['git', 'status', '--porcelain'].execute(null, rootProject.projectDir).text.trim()
+        if (status.isEmpty()) {
+            println '工作区没有需要提交的更改, 直接推送'
+        } else {
+            println '当前更改的文件:'
+            println status
+            print '请输入提交信息: '
+            def reader = new BufferedReader(new InputStreamReader(System.in))
+            def message = reader.readLine()
+            if (message == null || message.trim().isEmpty()) {
+                throw new GradleException('提交信息不能为空')
+            }
+            project.exec {
+                commandLine 'git', 'add', '.'
+                workingDir = rootProject.projectDir
+            }
+            project.exec {
+                commandLine 'git', 'commit', '-m', message
+                workingDir = rootProject.projectDir
+            }
+        }
+        project.exec {
+            commandLine 'git', 'push', 'origin', 'HEAD'
+            workingDir = rootProject.projectDir
+        }
+        def remoteTags = ['git', 'ls-remote', '--tags', 'origin'].execute(null, rootProject.projectDir).text
+        if (remoteTags.contains("refs/tags/${tagName}")) {
+            throw new GradleException("远程仓库已存在标签'${tagName}', 请更新buildVersion后再试")
+        }
+        project.exec {
+            commandLine 'git', 'tag', '-a', tagName, '-m', "Release ${tagName}"
+            workingDir = rootProject.projectDir
+        }
+        project.exec {
+            commandLine 'git', 'push', 'origin', tagName
+            workingDir = rootProject.projectDir
+        }
+        println ">>> 发布完成! 标签${tagName}已推送, JitPack将开始构建"
     }
 }
