@@ -24,18 +24,28 @@
  */
 package org.spongepowered.tools.agent;
 
+import java.io.File;
+import java.io.IOException;
 import java.lang.instrument.ClassDefinition;
 import java.lang.instrument.ClassFileTransformer;
-import java.lang.instrument.IllegalClassFormatException;
 import java.lang.instrument.Instrumentation;
+import java.net.URL;
 import java.security.ProtectionDomain;
 import java.util.ArrayList;
+import java.util.Enumeration;
 import java.util.List;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
 
+import org.spongepowered.asm.launch.MixinBootstrap;
+import org.spongepowered.asm.launch.platform.CommandLineOptions;
 import org.spongepowered.asm.logging.Level;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.tree.ClassNode;
+import org.spongepowered.asm.mixin.MixinEnvironment;
+import org.spongepowered.asm.mixin.Mixins;
 import org.spongepowered.asm.mixin.transformer.IMixinTransformer;
+import org.spongepowered.asm.mixin.transformer.MixinTransformer;
 import org.spongepowered.asm.mixin.transformer.ext.IHotSwap;
 import org.spongepowered.asm.mixin.transformer.throwables.MixinReloadException;
 import org.spongepowered.asm.service.IMixinService;
@@ -57,11 +67,11 @@ public class MixinAgent implements IHotSwap {
     class Transformer implements ClassFileTransformer {
 
         @Override
-        public byte[] transform(ClassLoader loader, String className, Class<?> classBeingRedefined, ProtectionDomain domain, byte[] classfileBuffer)
-                throws IllegalClassFormatException {
+        public byte[] transform(ClassLoader loader, String className, Class<?> classBeingRedefined, ProtectionDomain domain, byte[] classfileBuffer) {
+            /*If we don't comment out this line of code, it will cause the @ Inject of the JavaAgent automatic initialization scheme to completely fail!
             if (classBeingRedefined == null) {
                 return null;
-            }
+            }*/
             
             byte[] mixinBytecode = MixinAgent.classLoader.getFakeMixinBytecode(classBeingRedefined);
             if (mixinBytecode != null) {
@@ -149,7 +159,7 @@ public class MixinAgent implements IHotSwap {
     /**
      * Instances of all agents
      */
-    private static List<MixinAgent> agents = new ArrayList<MixinAgent>();
+    private static final List<MixinAgent> agents = new ArrayList<>();
 
     /**
      * MixinTransformer instance to use to transform the mixin's target classes
@@ -209,23 +219,77 @@ public class MixinAgent implements IHotSwap {
      *
      * @param arg Ignored
      * @param instrumentation Instance to use to transform the mixins
+     *
+     * We only scan all mixins.*.json or *.mixin.json under the resource directory
      */
-    public static void premain(String arg, Instrumentation instrumentation) {
+    public static void premain(String arg, Instrumentation instrumentation) throws IOException {
         System.setProperty("mixin.hotSwap", "true");
+
+        MixinBootstrap.init();
+        MixinEnvironment.init(MixinEnvironment.Phase.DEFAULT);
+        MixinEnvironment.gotoPhase(MixinEnvironment.Phase.DEFAULT);
+        MixinBootstrap.getPlatform().prepare(CommandLineOptions.defaultArgs());
+
+        List<String> configs = new ArrayList<>();
+        ClassLoader loader = ClassLoader.getSystemClassLoader();
+        try {
+            Enumeration<URL> roots = loader.getResources("");
+            while (roots.hasMoreElements()){
+                URL url = roots.nextElement();
+                String protocol = url.getProtocol();
+                if ("file".equals(protocol)) {
+                    File dir = new File(url.getPath());
+                    if (dir.isDirectory()) {
+                        File[] files = dir.listFiles();
+                        if (files != null) {
+                            for (File file : files) {
+                                String name = file.getName();
+                                if ((name.startsWith("mixins.") && name.endsWith(".json")) || name.endsWith(".mixin.json")){
+                                    configs.add(name);
+                                }
+                            }
+                        }
+                    }
+                }
+                else if ("jar".equals(protocol)) {
+                    String jarPath = url.getPath();
+                    if (jarPath.startsWith("file:")) {
+                        jarPath = jarPath.substring(5);
+                    }
+                    int separator = jarPath.indexOf("!/");
+                    if (separator >= 0) {
+                        jarPath = jarPath.substring(0, separator);
+                    }
+                    try (JarFile jar = new JarFile(jarPath)) {
+                        Enumeration<JarEntry> entries = jar.entries();
+                        while (entries.hasMoreElements()) {
+                            JarEntry entry = entries.nextElement();
+                            String name = entry.getName();
+                            if (!entry.isDirectory() && !name.endsWith("/")) {
+                                if ((name.startsWith("mixins.") && name.endsWith(".json")) || name.endsWith(".mixin.json")){
+                                    configs.add(name);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (IOException e){
+            log(Level.FATAL, "Could not auto init Mixin:" + e.getMessage());
+            throw e;
+        }
+        List<String> targets = configs.stream().distinct().toList();
+        for (String target : targets) {
+            Mixins.addConfiguration(target);
+        }
+
+        new MixinTransformer();
+
         MixinAgent.init(instrumentation);
     }
 
-    /**
-     * Initialize the java agent
-     *
-     * <p>This will be called automatically if the java agent is loaded after
-     * JVVM startup</p>
-     *
-     * @param arg Ignored
-     * @param instrumentation Instance to use to re-define the mixins
-     */
     public static void agentmain(String arg, Instrumentation instrumentation) {
-        MixinAgent.init(instrumentation);
+        throw new RuntimeException("AgentMain is currently not supported");
     }
 
     /**

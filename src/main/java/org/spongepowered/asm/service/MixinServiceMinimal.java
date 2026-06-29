@@ -16,6 +16,7 @@ public class MixinServiceMinimal extends MixinServiceAbstract {
 
     @Override
     protected ILogger createLogger(String name) {
+        //return new org.spongepowered.asm.logging.LoggerAdapterConsole(name).setDebugStream(System.out);
         return new ILogger() {
             @Override public String getId() { return name; }
             @Override public String getType() { return "Silent"; }
@@ -64,7 +65,6 @@ public class MixinServiceMinimal extends MixinServiceAbstract {
 
             private String format(String msg, Object... params) {
                 if (params == null || params.length == 0) return msg;
-                // 简单替换 {} 为 %s
                 return msg.replace("{}", "%s").formatted(params);
             }
         };
@@ -120,7 +120,21 @@ public class MixinServiceMinimal extends MixinServiceAbstract {
 
             @Override
             public ClassNode getClassNode(String name, boolean runTransformers, int readerFlags) throws IOException {
-                ClassReader reader = new ClassReader(name);
+                ClassLoader contextLoader = Thread.currentThread().getContextClassLoader();
+                InputStream is = null;
+                if (contextLoader != null) {
+                    is = contextLoader.getResourceAsStream(name.replace('.', '/') + ".class");
+                }
+                if (is == null) {
+                    is = ClassLoader.getSystemClassLoader().getResourceAsStream(name.replace('.', '/') + ".class");
+                }
+                if (is == null) {
+                    is = MixinServiceMinimal.class.getClassLoader().getResourceAsStream(name.replace('.', '/') + ".class");
+                }
+                if (is == null) {
+                    throw new IOException("Class bytecode not found: " + name);
+                }
+                ClassReader reader = new ClassReader(is);
                 ClassNode node = new ClassNode();
                 reader.accept(node, readerFlags);
                 return node;
