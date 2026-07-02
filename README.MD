@@ -11,12 +11,12 @@ repositories {
     maven { url 'https://jitpack.io' }
 }
 dependencies {
-    implementation 'com.github.UntoldStudio:Mixin:0.2.0'
-    annotationProcessor 'com.github.UntoldStudio:Mixin:0.2.0'
+    implementation 'com.github.UntoldStudio:Mixin:0.2.1'
+    annotationProcessor 'com.github.UntoldStudio:Mixin:0.2.1'
 }
 ```
 
-Replace `0.2.0` with the latest release tag.
+Replace `0.2.1` with the latest release tag.
 
 ## Core Concepts
 

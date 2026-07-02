@@ -192,9 +192,22 @@ tasks.register('apJar', ShadowJar) {
 build.dependsOn stagingJar
 build.dependsOn apJar
 
-artifacts {
-    archives stagingJar
-    archives apJar
+def generatedDir = layout.buildDirectory.dir('generated/sources/mixinVersion')
+
+tasks.register('generateMixinBootstrapVersion', Copy) {
+    from('src/main/java') {
+        include 'org/spongepowered/asm/launch/MixinBootstrap.java'
+    }
+    into generatedDir
+    filter { line ->
+        line.replace('@MIXIN_VERSION@', project.version.toString())
+    }
+}
+
+compileJava {
+    dependsOn generateMixinBootstrapVersion
+    exclude 'org/spongepowered/asm/launch/MixinBootstrap.java'
+    source generatedDir.get().file('org/spongepowered/asm/launch/MixinBootstrap.java')
 }
 
 publishing {
