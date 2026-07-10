@@ -2,8 +2,11 @@ package com.github.untoldstudio.mixin.api;
 
 import org.spongepowered.asm.launch.MixinBootstrap;
 import org.spongepowered.asm.launch.platform.CommandLineOptions;
+import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.MixinEnvironment;
 import org.spongepowered.asm.mixin.Mixins;
+import org.spongepowered.asm.mixin.transformer.IMixinTransformer;
+import org.spongepowered.asm.mixin.transformer.MixinTransformer;
 
 import java.io.File;
 
@@ -23,5 +26,14 @@ public class MixinLauncher {
         } catch (Exception e) {
             throw new RuntimeException("Failed to attach Mixin agent", e);
         }
+    }
+    public static IMixinTransformer createTransformer(){
+        return new MixinTransformer();
+    }
+    public static void addConfiguration(String path){
+        Mixins.addConfiguration(path);
+    }
+    public static MixinEnvironment getEnvironment(){
+        return MixinEnvironment.getDefaultEnvironment();
     }
 }
